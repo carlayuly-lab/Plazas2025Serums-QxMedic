@@ -5,6 +5,7 @@ import streamlit.components.v1 as components
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="Beta 1 - Dashboard SERUMS", layout="wide", page_icon="🏥")
 
+# Estilo CSS para tarjetas (Grid)
 st.markdown("""
     <style>
     .card { 
@@ -17,10 +18,11 @@ st.markdown("""
 
 # Función para convertir URL de Panopto a Embed
 def get_panopto_embed_url(url):
+    # Validamos que sea string y no esté vacío
     if pd.isna(url) or not isinstance(url, str):
         return None
-    # Aseguramos que la URL sea string y reemplazamos
     url = str(url).strip()
+    # Reemplazamos la parte de la URL para el iframe
     return url.replace("Viewer.aspx", "Embed.aspx")
 
 # --- 2. CARGA DE DATOS ---
@@ -29,23 +31,25 @@ def cargar_datos_github():
     # REEMPLAZA ESTA URL CON TU URL RAW DE GITHUB
     url = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/INFO.csv"
     df = pd.read_csv(url, sep=';')
-    # Limpiamos nombres de columnas (eliminamos espacios en blanco accidentales)
+    # Limpiamos nombres de columnas quitando espacios al inicio/final
     df.columns = [c.strip() for c in df.columns]
     return df
 
-# --- 3. INTERFAZ ---
+# --- 3. INTERFAZ Y LÓGICA ---
 st.title("🏥 Dashboard de Plazas SERUMS 2025")
 
 try:
     df = cargar_datos_github()
-    
-    # DEBUG: Si el error persiste, descomenta la siguiente línea para ver tus columnas reales
-    # st.write("Columnas encontradas:", df.columns.tolist())
 
-    # Verificación de columna necesaria
-    if 'TESTIMONIOS' not in df.columns:
-        st.error("Error: No se encontró la columna 'TESTIMONIOS' en tu archivo CSV. Revisa el nombre en tu archivo original.")
-        st.stop()
+    # --- VERIFICACIÓN DE SEGURIDAD ---
+    # Revisamos que las columnas necesarias existan en el archivo
+    # Usamos las columnas presentes en el dataset
+    columnas_necesarias = ['TESTIMONIOS', 'NOMBRE DE ESTABLECIMIENTO', 'DISTRITO', 'DEPARTAMENTO', 'GRADO DE DIFICULTAD', 'CATEGORÍA']
+    for col in columnas_necesarias:
+        if col not in df.columns:
+            st.error(f"❌ Error: No se encontró la columna '{col}' en tu archivo CSV.")
+            st.write("Columnas detectadas en el archivo:", df.columns.tolist())
+            st.stop()
 
     # Sidebar: Filtros
     st.sidebar.header("🔍 Filtros de Búsqueda")
@@ -57,7 +61,7 @@ try:
     if depto_sel: df_f = df_f[df_f['DEPARTAMENTO'].isin(depto_sel)]
     if grado_sel: df_f = df_f[df_f['GRADO DE DIFICULTAD'].isin(grado_sel)]
 
-    # Métricas
+    # Métricas superiores
     col_m1, col_m2, col_m3 = st.columns(3)
     col_m1.metric("Total Plazas", len(df_f))
     col_m2.metric("Con Testimonio", df_f['TESTIMONIOS'].notna().sum())
@@ -65,7 +69,7 @@ try:
 
     st.markdown("---")
 
-    # Grid de tarjetas
+    # Grid de tarjetas (2 columnas)
     for i in range(0, len(df_f), 2):
         row = df_f.iloc[i:i+2]
         cols = st.columns(2)
@@ -74,6 +78,7 @@ try:
             with cols[idx]:
                 embed_url = get_panopto_embed_url(item.get('TESTIMONIOS'))
                 
+                # Renderizamos la tarjeta
                 st.markdown(f"""
                     <div class="card">
                         <h4 style='color: #1f77b4;'>{item['NOMBRE DE ESTABLECIMIENTO']}</h4>
@@ -91,4 +96,4 @@ try:
                 st.write("") # Espaciado
 
 except Exception as e:
-    st.error(f"Error detectado: {e}")
+    st.error(f"Error crítico en la ejecución: {e}")
