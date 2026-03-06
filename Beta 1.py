@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURACIÓN ---
+# --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Beta 1 - Dashboard SERUMS", layout="wide", page_icon="🏥")
 
 # Estilo CSS para tarjetas (Grid)
@@ -21,16 +21,16 @@ def get_panopto_embed_url(url):
     if pd.isna(url) or url == '': return None
     return str(url).replace("Viewer.aspx", "Embed.aspx")
 
-# --- 2. CARGA DE DATOS DESDE GITHUB (CACHEADA) ---
-@st.cache_data(ttl=600) # El ttl=600 hace que se refresque cada 10 minutos
+# --- 2. CARGA DE DATOS (CON CACHE) ---
+@st.cache_data(ttl=600) 
 def cargar_datos_github():
-    # REEMPLAZA ESTA URL CON TU URL RAW DE GITHUB
+    # REEMPLAZA ESTO CON TU URL RAW DE GITHUB
     url = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/INFO.csv"
     df = pd.read_csv(url, sep=';')
     df.columns = [c.strip() for c in df.columns]
     return df
 
-# --- 3. INTERFAZ ---
+# --- 3. INTERFAZ Y LÓGICA ---
 st.title("🏥 Dashboard de Plazas SERUMS 2025")
 
 try:
@@ -46,7 +46,7 @@ try:
     if depto_sel: df_f = df_f[df_f['DEPARTAMENTO'].isin(depto_sel)]
     if grado_sel: df_f = df_f[df_f['GRADO DE DIFICULTAD'].isin(grado_sel)]
 
-    # Métricas
+    # Métricas superiores
     col_m1, col_m2, col_m3 = st.columns(3)
     col_m1.metric("Total Plazas", len(df_f))
     col_m2.metric("Con Testimonio", df_f['TESTIMONIOS'].notna().sum())
@@ -54,7 +54,7 @@ try:
 
     st.markdown("---")
 
-    # Grid de tarjetas
+    # Grid de tarjetas (2 columnas)
     for i in range(0, len(df_f), 2):
         row = df_f.iloc[i:i+2]
         cols = st.columns(2)
@@ -74,8 +74,6 @@ try:
                 if embed_url:
                     components.iframe(embed_url, height=250, scrolling=False)
                 else:
-                    st.warning("Sin video disponible.")
-
-except Exception as e:
-    st.error(f"Error al cargar los datos desde GitHub: {e}")
-    st.info("Asegúrate de que la URL en el código sea la URL 'Raw' correcta y que tu repositorio sea público.")
+                    st.warning("ℹ️ Sin video disponible.")
+                
+                st.write("") # Espaci
