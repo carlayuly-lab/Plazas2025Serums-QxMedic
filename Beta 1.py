@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURACIÓN DE PÁGINA ---
+# --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="Beta 1 - Dashboard SERUMS", layout="wide", page_icon="🏥")
 
-# Estilo CSS para tarjetas (Grid)
 st.markdown("""
     <style>
     .card { 
@@ -18,24 +17,35 @@ st.markdown("""
 
 # Función para convertir URL de Panopto a Embed
 def get_panopto_embed_url(url):
-    if pd.isna(url) or url == '': return None
-    return str(url).replace("Viewer.aspx", "Embed.aspx")
+    if pd.isna(url) or not isinstance(url, str):
+        return None
+    # Aseguramos que la URL sea string y reemplazamos
+    url = str(url).strip()
+    return url.replace("Viewer.aspx", "Embed.aspx")
 
-# --- 2. CARGA DE DATOS (CON CACHE) ---
+# --- 2. CARGA DE DATOS ---
 @st.cache_data(ttl=600) 
 def cargar_datos_github():
-    # REEMPLAZA ESTO CON TU URL RAW DE GITHUB
+    # REEMPLAZA ESTA URL CON TU URL RAW DE GITHUB
     url = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/INFO.csv"
     df = pd.read_csv(url, sep=';')
-    # Limpieza de nombres de columnas
+    # Limpiamos nombres de columnas (eliminamos espacios en blanco accidentales)
     df.columns = [c.strip() for c in df.columns]
     return df
 
-# --- 3. INTERFAZ Y LÓGICA ---
+# --- 3. INTERFAZ ---
 st.title("🏥 Dashboard de Plazas SERUMS 2025")
 
 try:
     df = cargar_datos_github()
+    
+    # DEBUG: Si el error persiste, descomenta la siguiente línea para ver tus columnas reales
+    # st.write("Columnas encontradas:", df.columns.tolist())
+
+    # Verificación de columna necesaria
+    if 'TESTIMONIOS' not in df.columns:
+        st.error("Error: No se encontró la columna 'TESTIMONIOS' en tu archivo CSV. Revisa el nombre en tu archivo original.")
+        st.stop()
 
     # Sidebar: Filtros
     st.sidebar.header("🔍 Filtros de Búsqueda")
@@ -47,7 +57,7 @@ try:
     if depto_sel: df_f = df_f[df_f['DEPARTAMENTO'].isin(depto_sel)]
     if grado_sel: df_f = df_f[df_f['GRADO DE DIFICULTAD'].isin(grado_sel)]
 
-    # Métricas superiores
+    # Métricas
     col_m1, col_m2, col_m3 = st.columns(3)
     col_m1.metric("Total Plazas", len(df_f))
     col_m2.metric("Con Testimonio", df_f['TESTIMONIOS'].notna().sum())
@@ -55,7 +65,7 @@ try:
 
     st.markdown("---")
 
-    # Grid de tarjetas (2 columnas)
+    # Grid de tarjetas
     for i in range(0, len(df_f), 2):
         row = df_f.iloc[i:i+2]
         cols = st.columns(2)
@@ -72,12 +82,13 @@ try:
                     </div>
                 """, unsafe_allow_html=True)
                 
+                # Renderizado del video
                 if embed_url:
                     components.iframe(embed_url, height=250, scrolling=False)
                 else:
-                    st.warning("ℹ️ Sin video disponible.")
+                    st.warning("ℹ️ Sin testimonio de video disponible.")
                 
                 st.write("") # Espaciado
 
 except Exception as e:
-    st.error(f"Error al cargar los datos desde GitHub. Verifica tu URL 'Raw'. Detalles: {e}")
+    st.error(f"Error detectado: {e}")
