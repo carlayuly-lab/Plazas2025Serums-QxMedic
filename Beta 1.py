@@ -27,6 +27,7 @@ def cargar_datos_github():
     # REEMPLAZA ESTO CON TU URL RAW DE GITHUB
     url = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/INFO.csv"
     df = pd.read_csv(url, sep=';')
+    # Limpieza de nombres de columnas
     df.columns = [c.strip() for c in df.columns]
     return df
 
@@ -76,4 +77,7 @@ try:
                 else:
                     st.warning("ℹ️ Sin video disponible.")
                 
-                st.write("") # Espaci
+                st.write("") # Espaciado
+
+except Exception as e:
+    st.error(f"Error al cargar los datos desde GitHub. Verifica tu URL 'Raw'. Detalles: {e}")
