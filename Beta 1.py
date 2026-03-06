@@ -3,97 +3,70 @@ import pandas as pd
 import streamlit.components.v1 as components
 
 # --- 1. CONFIGURACIÓN ---
-st.set_page_config(page_title="Beta 1 - Dashboard SERUMS", layout="wide", page_icon="🏥")
+st.set_page_config(page_title="Beta 1 - QX Medic SERUMS", layout="wide", page_icon="🏥")
 
-# Estilo CSS para tarjetas (Grid)
 st.markdown("""
     <style>
-    .card { 
-        background-color: #ffffff; border: 1px solid #e1e4e8; padding: 20px; 
-        border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        height: 100%;
+    .main-card { 
+        background-color: white; border: 1px solid #e6e9ef; padding: 20px; 
+        border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border-left: 6px solid #1f77b4;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# Función para convertir URL de Panopto a Embed
+# Función para convertir URL de Panopto
 def get_panopto_embed_url(url):
-    # Validamos que sea string y no esté vacío
-    if pd.isna(url) or not isinstance(url, str):
-        return None
-    url = str(url).strip()
-    # Reemplazamos la parte de la URL para el iframe
-    return url.replace("Viewer.aspx", "Embed.aspx")
+    if pd.isna(url) or url == '': return None
+    return str(url).replace("Viewer.aspx", "Embed.aspx")
 
-# --- 2. CARGA DE DATOS ---
-@st.cache_data(ttl=600) 
-def cargar_datos_github():
-    # REEMPLAZA ESTA URL CON TU URL RAW DE GITHUB
+# --- 2. CARGA DE DATOS (DESDE GITHUB) ---
+@st.cache_data(ttl=600)
+def cargar_datos():
+    # REEMPLAZA CON TU URL RAW DE GITHUB
     url = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/INFO.csv"
     df = pd.read_csv(url, sep=';')
-    # Limpiamos nombres de columnas quitando espacios al inicio/final
     df.columns = [c.strip() for c in df.columns]
     return df
 
-# --- 3. INTERFAZ Y LÓGICA ---
-st.title("🏥 Dashboard de Plazas SERUMS 2025")
+# --- 3. INTERFAZ ---
+st.title("🏥 Beta 1: Gestión de Plazas SERUMS 2025")
 
 try:
-    df = cargar_datos_github()
-
-    # --- VERIFICACIÓN DE SEGURIDAD ---
-    # Revisamos que las columnas necesarias existan en el archivo
-    # Usamos las columnas presentes en el dataset
-    columnas_necesarias = ['TESTIMONIOS', 'NOMBRE DE ESTABLECIMIENTO', 'DISTRITO', 'DEPARTAMENTO', 'GRADO DE DIFICULTAD', 'CATEGORÍA']
-    for col in columnas_necesarias:
-        if col not in df.columns:
-            st.error(f"❌ Error: No se encontró la columna '{col}' en tu archivo CSV.")
-            st.write("Columnas detectadas en el archivo:", df.columns.tolist())
-            st.stop()
+    df = cargar_datos()
 
     # Sidebar: Filtros
-    st.sidebar.header("🔍 Filtros de Búsqueda")
+    st.sidebar.header("🔍 Panel de Filtros")
     depto_sel = st.sidebar.multiselect("Departamentos", options=sorted(df['DEPARTAMENTO'].unique()))
     grado_sel = st.sidebar.multiselect("Grado de Dificultad", options=sorted(df['GRADO DE DIFICULTAD'].unique()))
 
-    # Aplicación de filtros
+    # Filtros
     df_f = df.copy()
     if depto_sel: df_f = df_f[df_f['DEPARTAMENTO'].isin(depto_sel)]
     if grado_sel: df_f = df_f[df_f['GRADO DE DIFICULTAD'].isin(grado_sel)]
 
-    # Métricas superiores
-    col_m1, col_m2, col_m3 = st.columns(3)
-    col_m1.metric("Total Plazas", len(df_f))
-    col_m2.metric("Con Testimonio", df_f['TESTIMONIOS'].notna().sum())
-    col_m3.metric("Departamentos", len(df_f['DEPARTAMENTO'].unique()))
-
-    st.markdown("---")
-
-    # Grid de tarjetas (2 columnas)
-    for i in range(0, len(df_f), 2):
-        row = df_f.iloc[i:i+2]
-        cols = st.columns(2)
+    st.subheader(f"📊 Resultados encontrados: {len(df_f)}")
+    
+    for _, row in df_f.iterrows():
+        embed_url = get_panopto_embed_url(row.get('TESTIMONIOS'))
         
-        for idx, (_, item) in enumerate(row.iterrows()):
-            with cols[idx]:
-                embed_url = get_panopto_embed_url(item.get('TESTIMONIOS'))
-                
-                # Renderizamos la tarjeta
-                st.markdown(f"""
-                    <div class="card">
-                        <h4 style='color: #1f77b4;'>{item['NOMBRE DE ESTABLECIMIENTO']}</h4>
-                        <p><b>📍 {item['DISTRITO']}, {item['DEPARTAMENTO']}</b></p>
-                        <p>🛡️ <i>{item['GRADO DE DIFICULTAD']} | {item['CATEGORÍA']}</i></p>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Renderizado del video
-                if embed_url:
-                    components.iframe(embed_url, height=250, scrolling=False)
-                else:
-                    st.warning("ℹ️ Sin testimonio de video disponible.")
-                
-                st.write("") # Espaciado
+        with st.container():
+            st.markdown(f"""
+                <div class="main-card">
+                    <h3>🏥 {row['NOMBRE DE ESTABLECIMIENTO']}</h3>
+                    <p><b>📍 Ubicación:</b> {row['DISTRITO']}, {row['PROVINCIA']} ({row['DEPARTAMENTO']})</p>
+                    <p><b>🛡️ Dificultad:</b> {row['GRADO DE DIFICULTAD']} | <b>Categoría:</b> {row['CATEGORÍA']}</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # --- SOLUCIÓN PARA PANOPTO ---
+            if embed_url:
+                # Usamos link_button para evitar el bloqueo del iframe
+                st.link_button("🎥 Ver Testimonio de la sede", embed_url, use_container_width=True)
+            else:
+                st.info("ℹ️ Sin video disponible para esta sede.")
+            
+            st.markdown("---") 
 
 except Exception as e:
-    st.error(f"Error crítico en la ejecución: {e}")
+    st.warning("⚠️ Esperando datos desde GitHub o el archivo no está accesible.")
